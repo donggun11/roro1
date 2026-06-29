@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>노래모음집 Supabase</title>
+  <style>
+    :root{
+      --bg:#090d18; --panel:rgba(17,24,39,.84); --panel2:rgba(2,6,23,.58);
+      --line:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
+      --accent:#7c3aed; --accent2:#2563eb; --chip:#1f2937;
+      --danger:rgba(239,68,68,.12); --shadow:0 18px 50px rgba(0,0,0,.35);
+      --hl:#fbbf24; --hlbg:rgba(251,191,36,.14);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);
+      background:radial-gradient(1000px 500px at 10% 10%, rgba(124,58,237,.25), transparent 55%),
+      radial-gradient(800px 400px at 90% 20%, rgba(59,130,246,.18), transparent 50%),
+      linear-gradient(180deg,#09101f,var(--bg));min-height:100vh;}
+    .wrap{max-width:1180px;margin:0 auto;padding:28px 18px 40px}
+    .hero{margin-bottom:18px}
+    .hero h1{margin:0 0 10px;font-size:clamp(28px,5vw,44px);letter-spacing:-.03em}
+    .hero p{margin:0;color:var(--muted);line-height:1.6}
+    .grid{display:grid;grid-template-columns:360px 1fr;gap:18px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);backdrop-filter:blur(12px)}
+    .side{padding:18px;display:grid;gap:14px;align-content:start;position:sticky;top:18px;height:fit-content}
+    .main{padding:18px;display:grid;gap:16px}
+    .section-title{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:0 0 2px}
+    .field,.search,.btn,.select,textarea{width:100%;border:1px solid var(--line);background:rgba(15,23,42,.85);color:var(--text);border-radius:14px;padding:13px 14px;font:inherit;outline:none}
+    textarea{min-height:110px;resize:vertical;line-height:1.6}
+    .btn{border:0;cursor:pointer;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+    .btn.secondary{background:var(--chip);border:1px solid var(--line);font-weight:600}
+    .subcard{padding:16px;border-radius:18px;background:var(--panel2);border:1px solid var(--line)}
+    .status{color:var(--muted);font-size:13px;line-height:1.5}
+    .chips{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{border:1px solid var(--line);background:rgba(31,41,55,.75);color:var(--text);border-radius:999px;padding:8px 12px;font-size:13px;cursor:pointer;user-select:none}
+    .chip.active{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent}
+    .playerbox{padding:16px;border-radius:18px;background:rgba(2,6,23,.55);border:1px solid var(--line);display:grid;gap:12px}
+    .now .title{font-size:20px;font-weight:800;margin-bottom:4px}
+    .now .meta{color:var(--muted);font-size:13px}
+    audio,video{width:100%;border-radius:16px;background:#000;display:block}
+    video{max-height:520px}
+    .lyrics{border:1px solid var(--line);border-radius:16px;background:rgba(15,23,42,.68);padding:16px;max-height:360px;overflow:auto;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.8}
+    .lyric-line{padding:7px 10px;border-radius:10px;cursor:pointer;transition:.15s ease;margin:3px 0;color:#e2e8f0}
+    .lyric-line.active{color:#fff;background:var(--hlbg);border-left:4px solid var(--hl);font-weight:800;transform:translateX(2px)}
+    .list{display:grid;gap:12px}
+    .item{display:grid;grid-template-columns:1fr auto;gap:12px;padding:16px;border-radius:18px;background:rgba(17,24,39,.82);border:1px solid var(--line)}
+    .item .title{font-size:18px;font-weight:800;margin-bottom:4px}
+    .item .meta{color:var(--muted);font-size:13px;line-height:1.5}
+    .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .mini{padding:9px 12px;border-radius:12px;border:1px solid var(--line);background:var(--chip);color:var(--text);cursor:pointer;font-weight:650}
+    .mini.play{background:rgba(124,58,237,.22)}
+    .mini.del{background:var(--danger)}
+    .empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:18px;background:rgba(15,23,42,.4)}
+    .hidden{display:none !important}
+    @media (max-width:920px){.grid{grid-template-columns:1fr}.side{position:static}.item{grid-template-columns:1fr}.actions{justify-content:flex-start}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>노래모음집 Supabase</h1>
+      <p>파일과 목록을 Supabase에 저장해서 다른 기기에서도 같이 보게 만들었어요.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card side">
+        <div class="subcard">
+          <div class="section-title">검색</div>
+          <input id="query" class="search" placeholder="제목, 가수, 가사 검색">
+          <div class="chips">
+            <div class="chip active" data-filter="all">전체</div>
+            <div class="chip" data-filter="audio">MP3</div>
+            <div class="chip" data-filter="video">동영상</div>
+          </div>
+        </div>
+
+        <div class="subcard">
+          <div class="section-title">관리자</div>
+          <div id="loginArea" style="display:grid;gap:10px;margin-top:10px;">
+            <input id="pwInput" class="field" type="password" placeholder="비밀번호 입력">
+            <button class="btn" onclick="unlock()">입장</button>
+            <div class="status" id="pwStatus">비밀번호가 맞아야 관리자 메뉴가 열려요.</div>
+          </div>
+
+          <div id="adminArea" class="hidden" style="display:grid;gap:10px;margin-top:10px;">
+            <input id="title" class="field" placeholder="제목">
+            <input id="artist" class="field" placeholder="가수">
+            <textarea id="lyrics" placeholder="0|첫 줄 가사"></textarea>
+            <select id="kind" class="select">
+              <option value="audio">MP3</option>
+              <option value="video">동영상</option>
+            </select>
+            <input id="mediaFile" class="field" type="file" accept="audio/*,video/*">
+            <button class="btn" onclick="addItem()">추가하기</button>
+            <button class="btn secondary" onclick="logout()">로그아웃</button>
+          </div>
+        </div>
+
+        <div class="status" id="status">준비 중...</div>
+      </div>
+
+      <div class="card main">
+        <div class="section-title">현재 재생</div>
+        <div class="playerbox" id="player" style="display:none;">
+          <div class="now">
+            <div class="title" id="nowTitle"></div>
+            <div class="meta" id="nowMeta"></div>
+          </div>
+          <div id="playerArea"></div>
+          <div class="lyrics" id="lyricBox" style="display:none;"></div>
+        </div>
+
+        <div class="section-title" style="margin-top:6px;">목록</div>
+        <div class="status" id="count">0개</div>
+        <div class="list" id="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    const BUCKET = 'songs';
+    const SECRET = '0318';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let items = [];
+    let activeFilter = 'all';
+    let currentMedia = null;
+    let activeLyrics = [];
+    let activeLineEls = [];
+
+    function parseLyrics(raw) {
+      if (!raw) return [];
+      return String(raw).split(/\n+/).map(v => v.trim()).filter(Boolean).map((line, idx) => {
+        const m = line.match(/^(\d+(?:\.\d+)?)\s*\|\s*(.+)$/);
+        return m ? { start:Number(m[1]), text:m[2] } : { start: idx * 4, text: line };
+      });
+    }
+
+    function unlock() {
+      const v = document.getElementById('pwInput').value.trim();
+      const s = document.getElementById('pwStatus');
+      if (v === SECRET) {
+        sessionStorage.setItem('adminUnlocked', '1');
+        document.getElementById('loginArea').classList.add('hidden');
+        document.getElementById('adminArea').classList.remove('hidden');
+        s.textContent = '';
+        render();
+      } else s.textContent = '비밀번호가 틀렸어요.';
+    }
+
+    function logout() {
+      sessionStorage.removeItem('adminUnlocked');
+      document.getElementById('adminArea').classList.add('hidden');
+      document.getElementById('loginArea').classList.remove('hidden');
+      document.getElementById('pwInput').value = '';
+      document.getElementById('pwStatus').textContent = '비밀번호가 맞아야 관리자 메뉴가 열려요.';
+      render();
+    }
+
+    function loadAuth() {
+      if (sessionStorage.getItem('adminUnlocked') === '1') {
+        document.getElementById('loginArea').classList.add('hidden');
+        document.getElementById('adminArea').classList.remove('hidden');
+      }
+    }
+
+    async function fetchSongs() {
+      document.getElementById('status').textContent = '불러오는 중...';
+      const { data, error } = await supabase.from('songs').select('*').order('created_at', { ascending:false });
+      if (error) {
+        document.getElementById('status').textContent = '불러오기 실패';
+        console.error(error);
+        return;
+      }
+      items = (data || []).map(row => ({
+        ...row,
+        url: supabase.storage.from(BUCKET).getPublicUrl(row.file_path).data.publicUrl
+      }));
+      render();
+      document.getElementById('status').textContent = '불러왔어요.';
+    }
+
+    async function addItem() {
+      if (sessionStorage.getItem('adminUnlocked') !== '1') return;
+      const title = document.getElementById('title').value.trim();
+      const artist = document.getElementById('artist').value.trim();
+      const lyricsRaw = document.getElementById('lyrics').value.trim();
+      const kind = document.getElementById('kind').value;
+      const file = document.getElementById('mediaFile').files[0];
+      if (!title || !file) {
+        document.getElementById('status').textContent = '제목과 파일은 필수예요.';
+        return;
+      }
+
+      const filePath = `${Date.now()}_${file.name}`.replaceAll(' ', '_');
+      const up = await supabase.storage.from(BUCKET).upload(filePath, file, { upsert:false });
+      if (up.error) {
+        document.getElementById('status').textContent = '파일 업로드 실패';
+        console.error(up.error);
+        return;
+      }
+
+      const { error } = await supabase.from('songs').insert([{
+        title, artist, kind, file_path: filePath, file_name: file.name, lyrics: parseLyrics(lyricsRaw)
+      }]);
+      if (error) {
+        document.getElementById('status').textContent = 'DB 저장 실패';
+        console.error(error);
+        return;
+      }
+
+      document.getElementById('title').value = '';
+      document.getElementById('artist').value = '';
+      document.getElementById('lyrics').value = '';
+      document.getElementById('mediaFile').value = '';
+      await fetchSongs();
+    }
+
+    async function removeSong(id) {
+      const song = items.find(s => s.id === id);
+      if (!song) return;
+      await supabase.storage.from(BUCKET).remove([song.file_path]);
+      const { error } = await supabase.from('songs').delete().eq('id', id);
+      if (error) {
+        document.getElementById('status').textContent = '삭제 실패';
+        console.error(error);
+        return;
+      }
+      await fetchSongs();
+    }
+
+    function setActiveLyric(index) {
+      activeLineEls.forEach((el, i) => el.classList.toggle('active', i === index));
+      const activeEl = activeLineEls[index];
+      if (activeEl) activeEl.scrollIntoView({ behavior:'smooth', block:'center' });
+    }
+
+    function updateHighlight() {
+      if (!currentMedia || !activeLyrics.length) return;
+      const t = currentMedia.currentTime || 0;
+      let idx = 0;
+      for (let i = 0; i < activeLyrics.length; i++) {
+        if (t >= activeLyrics[i].start) idx = i;
+        else break;
+      }
+      setActiveLyric(idx);
+    }
+
+    function renderLyrics(item) {
+      const box = document.getElementById('lyricBox');
+      box.innerHTML = '';
+      activeLyrics = parseLyrics(item.lyrics || []);
+      activeLineEls = [];
+      if (!activeLyrics.length) {
+        box.style.display = 'none';
+        return;
+      }
+      box.style.display = 'block';
+      activeLyrics.forEach(line => {
+        const div = document.createElement('div');
+        div.className = 'lyric-line';
+        div.textContent = `${formatTime(line.start)}  ${line.text}`;
+        div.onclick = () => {
+          if (currentMedia) {
+            currentMedia.currentTime = line.start;
+            currentMedia.play();
+            updateHighlight();
+          }
+        };
+        box.appendChild(div);
+        activeLineEls.push(div);
+      });
+      updateHighlight();
+    }
+
+    function playItem(item) {
+      document.getElementById('player').style.display = 'grid';
+      document.getElementById('nowTitle').textContent = item.title || '';
+      document.getElementById('nowMeta').textContent = [item.artist, item.kind === 'video' ? '동영상' : 'MP3'].filter(Boolean).join(' · ');
+      document.getElementById('playerArea').innerHTML = item.kind === 'video'
+        ? `<video id="mediaEl" controls autoplay src="${item.url}"></video>`
+        : `<audio id="mediaEl" controls autoplay src="${item.url}"></audio>`;
+      currentMedia = document.getElementById('mediaEl');
+      currentMedia.addEventListener('timeupdate', updateHighlight);
+      currentMedia.addEventListener('seeked', updateHighlight);
+      currentMedia.addEventListener('play', updateHighlight);
+      renderLyrics(item);
+    }
+
+    function getFilteredItems() {
+      const q = document.getElementById('query').value.trim().toLowerCase();
+      return items.filter(it => {
+        const kind = it.kind || 'audio';
+        const typeOk = activeFilter === 'all' || kind === activeFilter;
+        const lyricText = Array.isArray(it.lyrics) ? it.lyrics.map(x => x.text).join(' ') : '';
+        const text = `${it.title || ''} ${it.artist || ''} ${lyricText} ${kind}`.toLowerCase();
+        return typeOk && (!q || text.includes(q));
+      });
+    }
+
+    function render() {
+      const filtered = getFilteredItems();
+      document.getElementById('count').textContent = `${filtered.length}개 / 전체 ${items.length}개`;
+      const list = document.getElementById('list');
+
+      if (!filtered.length) {
+        list.innerHTML = '<div class="empty">검색 결과가 없어요.</div>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(it => `
+        <div class="item">
+          <div>
+            <div class="title">${escapeHtml(it.title || '')}</div>
+            <div class="meta">${escapeHtml(it.artist || '')} · ${it.kind === 'video' ? '동영상' : 'MP3'} · ${escapeHtml(it.file_name || '')}</div>
+          </div>
+          <div class="actions">
+            <button class="mini play" data-play="${it.id}">재생</button>
+            ${sessionStorage.getItem('adminUnlocked') === '1' ? `<button class="mini del" data-del="${it.id}">삭제</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('[data-play]').forEach(btn => {
+        btn.onclick = () => playItem(items.find(x => String(x.id) === btn.dataset.play));
+      });
+      list.querySelectorAll('[data-del]').forEach(btn => {
+        btn.onclick = () => removeSong(Number(btn.dataset.del));
+      });
+    }
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function escapeHtml(str) {
+      return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
+    }
+
+    document.getElementById('query').addEventListener('input', render);
+    document.addEventListener('click', e => {
+      if (e.target.classList.contains('chip')) {
+        activeFilter = e.target.dataset.filter;
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        e.target.classList.add('active');
+        render();
+      }
+    });
+
+    loadAuth();
+    fetchSongs();
+  </script>
+</body>
+</html>
